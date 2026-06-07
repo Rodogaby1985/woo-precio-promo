@@ -36,23 +36,24 @@ The surcharge is recalculated live whenever the customer switches payment method
 
 ---
 
-## Configuration
+## Configuración
 
-### Admin settings page (recommended)
+### Pantalla de ajustes en el admin (recomendada)
 
-Since version 1.1.0 the plugin ships with a dedicated settings page in the WordPress back-end.
+Desde la versión 1.1.0 el plugin incluye una pantalla de configuración en el back-end de WordPress, con interfaz y textos por defecto en español.
 
-1. In the WordPress admin, navigate to **WooCommerce → Precio Promo**.
-2. Adjust the fields to match your store's needs and click **Save Settings**.
+1. En el admin de WordPress, ingresá a **WooCommerce → Precio Promo**.
+2. Ajustá los campos según tu tienda y hacé clic en **Guardar ajustes**.
 
-| Field | Default | Description |
+| Campo | Valor por defecto | Descripción |
 |---|---|---|
-| **Financing uplift (%)** | `36` | Percentage added on top of the base price (e.g. `36` for 36 %). |
-| **Number of installments** | `18` | Installments shown in the "cuotas" line. Set to `0` to hide the line. |
-| **Transfer gateway ID** | `bacs` | WooCommerce gateway ID treated as the no-surcharge transfer method. |
-| **Transfer price label** | `con Transferencia` | Text appended to the base price on product pages. |
-| **Installment line template** | `{count} cuotas sin interés de {amount}` | Template for the installment line; `{count}` and `{amount}` are replaced at runtime. |
-| **Checkout fee label** | `Recargo por financiación` | Label for the surcharge line item in the checkout totals. |
+| **Activar plugin** | `Sí` | Si está desactivado, el plugin no modifica precios ni agrega recargos en checkout. |
+| **Porcentaje de recargo (%)** | `36` | Porcentaje que se suma al precio base (ejemplo: `36` para 36 %). |
+| **Cantidad de cuotas** | `18` | Cuotas mostradas en la línea de cuotas. Usá `0` para ocultarla. |
+| **ID de medio de pago sin recargo** | `bacs` | ID de WooCommerce que se toma como transferencia sin recargo. |
+| **Texto del precio por transferencia** | `con Transferencia` | Texto que se agrega al precio base en producto/catálogo. |
+| **Plantilla de línea de cuotas** | `{count} cuotas sin interés de {amount}` | Plantilla para la línea de cuotas; `{count}` y `{amount}` se reemplazan en tiempo de ejecución. |
+| **Texto del recargo en checkout** | `Recargo por financiación` | Texto mostrado para la línea de recargo en el total del checkout. |
 
 ### Advanced: PHP constants (backward compatibility)
 
@@ -60,6 +61,7 @@ For programmatic configuration, you can still define constants in `wp-config.php
 
 | Constant | Default | Description |
 |---|---|---|
+| `WPP_ENABLED` | `true` | Enables/disables plugin behavior globally (`false` keeps WooCommerce untouched). |
 | `WPP_UPLIFT` | `0.36` | Fractional uplift applied to the base price (0.36 = 36 %). |
 | `WPP_INSTALLMENTS` | `18` | Number of equal installments. Set to `0` to hide the line. |
 | `WPP_TRANSFER_GATEWAY` | `'bacs'` | WooCommerce gateway ID that is treated as the no-surcharge "transfer" method. |

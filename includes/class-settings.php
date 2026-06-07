@@ -56,6 +56,7 @@ class WPP_Settings {
 	 */
 	public static function defaults() {
 		return array(
+			'enabled'              => 1,
 			/* Uplift stored as percentage (36 = 36 %) in the DB. */
 			'uplift'               => 36,
 			'installments'         => 18,
@@ -92,6 +93,15 @@ class WPP_Settings {
 		$defaults = self::defaults();
 
 		switch ( $key ) {
+
+			case 'enabled':
+				if ( defined( 'WPP_ENABLED' ) ) {
+					return (bool) WPP_ENABLED;
+				}
+				if ( isset( $options['enabled'] ) ) {
+					return (bool) absint( $options['enabled'] );
+				}
+				return (bool) $defaults['enabled'];
 
 			// -----------------------------------------------------------------
 			// uplift – constant WPP_UPLIFT is fractional (0.36), DB is percent.
@@ -167,7 +177,7 @@ class WPP_Settings {
 		add_submenu_page(
 			'woocommerce',
 			/* translators: browser tab title for the settings page */
-			__( 'Precio Promo Settings', 'woo-precio-promo' ),
+			__( 'Ajustes de Precio Promo', 'woo-precio-promo' ),
 			/* translators: sidebar menu label */
 			__( 'Precio Promo', 'woo-precio-promo' ),
 			'manage_woocommerce',
@@ -197,14 +207,22 @@ class WPP_Settings {
 		// -------------------------------------------------------------------
 		add_settings_section(
 			'wpp_section_calc',
-			__( 'Calculation', 'woo-precio-promo' ),
+			__( 'Cálculo', 'woo-precio-promo' ),
 			array( __CLASS__, 'section_calc_description' ),
 			self::PAGE_SLUG
 		);
 
 		add_settings_field(
+			'wpp_field_enabled',
+			__( 'Activar plugin', 'woo-precio-promo' ),
+			array( __CLASS__, 'field_enabled' ),
+			self::PAGE_SLUG,
+			'wpp_section_calc'
+		);
+
+		add_settings_field(
 			'wpp_field_uplift',
-			__( 'Financing uplift (%)', 'woo-precio-promo' ),
+			__( 'Porcentaje de recargo (%)', 'woo-precio-promo' ),
 			array( __CLASS__, 'field_uplift' ),
 			self::PAGE_SLUG,
 			'wpp_section_calc'
@@ -212,7 +230,7 @@ class WPP_Settings {
 
 		add_settings_field(
 			'wpp_field_installments',
-			__( 'Number of installments', 'woo-precio-promo' ),
+			__( 'Cantidad de cuotas', 'woo-precio-promo' ),
 			array( __CLASS__, 'field_installments' ),
 			self::PAGE_SLUG,
 			'wpp_section_calc'
@@ -220,7 +238,7 @@ class WPP_Settings {
 
 		add_settings_field(
 			'wpp_field_transfer_gateway',
-			__( 'Transfer gateway ID', 'woo-precio-promo' ),
+			__( 'ID de medio de pago sin recargo', 'woo-precio-promo' ),
 			array( __CLASS__, 'field_transfer_gateway' ),
 			self::PAGE_SLUG,
 			'wpp_section_calc'
@@ -231,14 +249,14 @@ class WPP_Settings {
 		// -------------------------------------------------------------------
 		add_settings_section(
 			'wpp_section_text',
-			__( 'Text Labels', 'woo-precio-promo' ),
+			__( 'Textos visibles', 'woo-precio-promo' ),
 			array( __CLASS__, 'section_text_description' ),
 			self::PAGE_SLUG
 		);
 
 		add_settings_field(
 			'wpp_field_transfer_label',
-			__( 'Transfer price label', 'woo-precio-promo' ),
+			__( 'Texto del precio por transferencia', 'woo-precio-promo' ),
 			array( __CLASS__, 'field_transfer_label' ),
 			self::PAGE_SLUG,
 			'wpp_section_text'
@@ -246,7 +264,7 @@ class WPP_Settings {
 
 		add_settings_field(
 			'wpp_field_installment_template',
-			__( 'Installment line template', 'woo-precio-promo' ),
+			__( 'Plantilla de línea de cuotas', 'woo-precio-promo' ),
 			array( __CLASS__, 'field_installment_template' ),
 			self::PAGE_SLUG,
 			'wpp_section_text'
@@ -254,7 +272,7 @@ class WPP_Settings {
 
 		add_settings_field(
 			'wpp_field_fee_label',
-			__( 'Checkout fee label', 'woo-precio-promo' ),
+			__( 'Texto del recargo en checkout', 'woo-precio-promo' ),
 			array( __CLASS__, 'field_fee_label' ),
 			self::PAGE_SLUG,
 			'wpp_section_text'
@@ -274,6 +292,8 @@ class WPP_Settings {
 	public static function sanitize( $input ) {
 		$clean    = array();
 		$defaults = self::defaults();
+
+		$clean['enabled'] = isset( $input['enabled'] ) ? 1 : 0;
 
 		// uplift: percentage, 0–1000.
 		$raw_uplift       = isset( $input['uplift'] ) ? $input['uplift'] : $defaults['uplift'];
@@ -311,17 +331,30 @@ class WPP_Settings {
 
 	/** @internal */
 	public static function section_calc_description() {
-		echo '<p>' . esc_html__( 'Control how the financed price and checkout surcharge are calculated.', 'woo-precio-promo' ) . '</p>';
+		echo '<p>' . esc_html__( 'Definí si el plugin está activo y cómo se calcula el precio financiado y el recargo.', 'woo-precio-promo' ) . '</p>';
 	}
 
 	/** @internal */
 	public static function section_text_description() {
-		echo '<p>' . esc_html__( 'Customise the text shown to customers on product pages and at checkout.', 'woo-precio-promo' ) . '</p>';
+		echo '<p>' . esc_html__( 'Personalizá los textos que ven tus clientes en productos y checkout.', 'woo-precio-promo' ) . '</p>';
 	}
 
 	// -----------------------------------------------------------------------
 	// Field renderers
 	// -----------------------------------------------------------------------
+
+	/** @internal */
+	public static function field_enabled() {
+		$options = (array) get_option( self::OPTION_KEY, array() );
+		$value   = isset( $options['enabled'] ) ? absint( $options['enabled'] ) : self::defaults()['enabled'];
+		printf(
+			'<label for="wpp_enabled"><input type="checkbox" id="wpp_enabled" name="%s[enabled]" value="1" %s> %s</label><p class="description">%s</p>',
+			esc_attr( self::OPTION_KEY ),
+			checked( 1, $value, false ),
+			esc_html__( 'Activar comportamiento de Precio Promo', 'woo-precio-promo' ),
+			esc_html__( 'Si lo desactivás, el plugin no modifica precios ni agrega recargos en el checkout.', 'woo-precio-promo' )
+		);
+	}
 
 	/** @internal */
 	public static function field_uplift() {
@@ -331,7 +364,7 @@ class WPP_Settings {
 			'<input type="number" id="wpp_uplift" name="%s[uplift]" value="%s" min="0" max="1000" step="0.01" class="small-text"> %%<p class="description">%s</p>',
 			esc_attr( self::OPTION_KEY ),
 			esc_attr( $value ),
-			esc_html__( 'Percentage added on top of the base price when a non-transfer gateway is used (e.g. 36 for 36 %).', 'woo-precio-promo' )
+			esc_html__( 'Porcentaje que se suma sobre el precio base cuando se usa un medio distinto al de transferencia (ejemplo: 36 para 36%).', 'woo-precio-promo' )
 		);
 	}
 
@@ -343,7 +376,7 @@ class WPP_Settings {
 			'<input type="number" id="wpp_installments" name="%s[installments]" value="%s" min="0" step="1" class="small-text"><p class="description">%s</p>',
 			esc_attr( self::OPTION_KEY ),
 			esc_attr( $value ),
-			esc_html__( 'Number of equal installments shown in the cuotas line. Set to 0 to hide the line.', 'woo-precio-promo' )
+			esc_html__( 'Cantidad de cuotas iguales que se muestran en la línea de cuotas. Usá 0 para ocultarla.', 'woo-precio-promo' )
 		);
 	}
 
@@ -355,7 +388,7 @@ class WPP_Settings {
 			'<input type="text" id="wpp_transfer_gateway" name="%s[transfer_gateway]" value="%s" class="regular-text"><p class="description">%s</p>',
 			esc_attr( self::OPTION_KEY ),
 			esc_attr( $value ),
-			esc_html__( 'WooCommerce gateway ID treated as the no-surcharge transfer method (default: bacs).', 'woo-precio-promo' )
+			esc_html__( 'ID de WooCommerce que se considera medio sin recargo (por defecto: bacs).', 'woo-precio-promo' )
 		);
 	}
 
@@ -367,7 +400,7 @@ class WPP_Settings {
 			'<input type="text" id="wpp_transfer_label" name="%s[transfer_label]" value="%s" class="regular-text"><p class="description">%s</p>',
 			esc_attr( self::OPTION_KEY ),
 			esc_attr( $value ),
-			esc_html__( 'Label appended to the base price on product pages (e.g. "con Transferencia").', 'woo-precio-promo' )
+			esc_html__( 'Texto que se agrega al precio base en la página de producto (ejemplo: "con Transferencia").', 'woo-precio-promo' )
 		);
 	}
 
@@ -380,7 +413,7 @@ class WPP_Settings {
 			esc_attr( self::OPTION_KEY ),
 			esc_attr( $value ),
 			/* translators: description of available template placeholders */
-			esc_html__( 'Template for the installment line. Use {count} for the number of installments and {amount} for the formatted amount.', 'woo-precio-promo' )
+			esc_html__( 'Plantilla para la línea de cuotas. Usá {count} para la cantidad de cuotas y {amount} para el importe formateado.', 'woo-precio-promo' )
 		);
 	}
 
@@ -392,7 +425,7 @@ class WPP_Settings {
 			'<input type="text" id="wpp_fee_label" name="%s[fee_label]" value="%s" class="regular-text"><p class="description">%s</p>',
 			esc_attr( self::OPTION_KEY ),
 			esc_attr( $value ),
-			esc_html__( 'Label shown as the surcharge line in the checkout order totals.', 'woo-precio-promo' )
+			esc_html__( 'Texto que se muestra como línea de recargo en el total del checkout.', 'woo-precio-promo' )
 		);
 	}
 
@@ -409,12 +442,12 @@ class WPP_Settings {
 		}
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Woo Precio Promo Settings', 'woo-precio-promo' ); ?></h1>
+			<h1><?php esc_html_e( 'Ajustes de Woo Precio Promo', 'woo-precio-promo' ); ?></h1>
 			<form method="post" action="options.php">
 				<?php
 				settings_fields( self::GROUP );
 				do_settings_sections( self::PAGE_SLUG );
-				submit_button( __( 'Save Settings', 'woo-precio-promo' ) );
+				submit_button( __( 'Guardar ajustes', 'woo-precio-promo' ) );
 				?>
 			</form>
 		</div>
