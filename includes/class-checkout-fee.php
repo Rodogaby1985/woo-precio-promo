@@ -47,11 +47,11 @@ class WPP_Checkout_Fee {
 		$chosen_gateway = WC()->session->get( 'chosen_payment_method' );
 
 		// If no gateway is chosen yet, or it is the transfer gateway, do nothing.
-		if ( empty( $chosen_gateway ) || $chosen_gateway === WPP_TRANSFER_GATEWAY ) {
+		if ( empty( $chosen_gateway ) || $chosen_gateway === WPP_Settings::get( 'transfer_gateway' ) ) {
 			return;
 		}
 
-		$uplift   = (float) WPP_UPLIFT;
+		$uplift   = WPP_Settings::get( 'uplift' );
 		$subtotal = $cart->get_subtotal();
 
 		if ( $subtotal <= 0 ) {
@@ -62,7 +62,7 @@ class WPP_Checkout_Fee {
 
 		$cart->add_fee(
 			/* translators: displayed as a line item in the cart/checkout totals */
-			__( 'Recargo por financiaci&oacute;n', 'woo-precio-promo' ),
+			WPP_Settings::get( 'fee_label' ),
 			$surcharge,
 			false // taxable – set to true if surcharges should carry tax in your store
 		);
