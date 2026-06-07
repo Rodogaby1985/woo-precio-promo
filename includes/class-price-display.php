@@ -22,7 +22,55 @@ class WPP_Price_Display {
 	 * Register hooks.
 	 */
 	public static function init() {
-		add_filter( 'woocommerce_get_price_html', array( __CLASS__, 'custom_price_html' ), 100, 2 );
+		add_filter( 'woocommerce_get_price_html', array( __CLASS__, 'custom_price_html' ), 9999, 2 );
+		add_action( 'wp', array( __CLASS__, 'register_theme_compat_hooks' ) );
+	}
+
+	/**
+	 * Register fallback price hooks for themes that bypass the default template output.
+	 *
+	 * @return void
+	 */
+	public static function register_theme_compat_hooks() {
+		if ( ! WPP_Settings::get( 'enabled' ) ) {
+			return;
+		}
+
+		remove_action( 'woocommerce_after_shop_loop_item_title', 'woocommerce_template_loop_price', 10 );
+		add_action( 'woocommerce_after_shop_loop_item_title', array( __CLASS__, 'render_loop_price' ), 10 );
+
+		remove_action( 'woocommerce_single_product_summary', 'woocommerce_template_single_price', 10 );
+		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_single_price' ), 10 );
+	}
+
+	/**
+	 * Render custom price block in product loops.
+	 *
+	 * @return void
+	 */
+	public static function render_loop_price() {
+		global $product;
+
+		if ( ! $product instanceof WC_Product ) {
+			return;
+		}
+
+		echo self::build_custom_price_html( $product );
+	}
+
+	/**
+	 * Render custom price block in single product summary.
+	 *
+	 * @return void
+	 */
+	public static function render_single_price() {
+		global $product;
+
+		if ( ! $product instanceof WC_Product ) {
+			return;
+		}
+
+		echo self::build_custom_price_html( $product );
 	}
 
 	/**
@@ -42,17 +90,24 @@ class WPP_Price_Display {
 			return $price_html;
 		}
 
-		// Only handle simple products and product variations.
-		// For variable products the parent shows a price range; we leave that
-		// untouched so WooCommerce can handle the "from $X" display naturally.
-		// The filter runs again for the chosen variation after selection.
-		if ( $product->is_type( 'variable' ) ) {
+		$custom_price_html = self::build_custom_price_html( $product );
+		if ( '' === $custom_price_html ) {
 			return $price_html;
 		}
 
-		$base_price = (float) $product->get_price();
+		return $custom_price_html;
+	}
+
+	/**
+	 * Build promo price block for a product.
+	 *
+	 * @param WC_Product $product Product object.
+	 * @return string
+	 */
+	private static function build_custom_price_html( $product ) {
+		$base_price = self::get_base_price_for_display( $product );
 		if ( $base_price <= 0 ) {
-			return $price_html;
+			return '';
 		}
 
 		$uplift          = WPP_Settings::get( 'uplift' );
@@ -99,5 +154,22 @@ class WPP_Price_Display {
 		</style>
 		<?php
 		return ob_get_clean();
+	}
+
+	/**
+	 * Resolve base price used for promo display.
+	 *
+	 * For variable parents we use the minimum variation price so catalog/single
+	 * views can still show promo data before a variation is selected.
+	 *
+	 * @param WC_Product $product Product object.
+	 * @return float
+	 */
+	private static function get_base_price_for_display( $product ) {
+		if ( $product->is_type( 'variable' ) ) {
+			return (float) $product->get_variation_price( 'min', false );
+		}
+
+		return (float) $product->get_price();
 	}
 }

@@ -97,7 +97,7 @@ Because the cart subtotal is the sum of base prices, adding `subtotal × uplift`
 The plugin assumes prices are managed **tax-exclusive** (the ERP sends net prices and WooCommerce is configured to display prices excluding tax, or taxes are zero-rated). If your store uses tax-inclusive pricing, review how WooCommerce calculates `get_subtotal()` and `get_price()` in your context.
 
 ### Variable products
-The `woocommerce_get_price_html` filter is **skipped for the variable product parent** (which otherwise shows a price range). The custom three-line display activates for each **variation** once a customer selects attributes. This is the safest approach for variable products.
+Variable product parents are now supported. For catalog/single pre-selection states, the plugin uses the **minimum variation price** as the base for the three-line promo block. After a variation is selected, WooCommerce variation pricing still updates normally and the promo display is recalculated from that selected variation price.
 
 ### External / synced prices
 The plugin reads `$product->get_price()` – whatever WooCommerce currently stores as the active price. If your ERP sync writes to the regular price field and leaves the sale price empty, the plugin will work correctly. If your sync uses the sale-price field as the active price, `get_price()` will still return the correct value (WooCommerce returns the sale price when one is set).
@@ -120,7 +120,7 @@ woo-precio-promo/
 ├── woo-precio-promo.php          # Plugin bootstrap & constants
 ├── includes/
 │   ├── class-settings.php        # Admin settings page & WPP_Settings helper
-│   ├── class-price-display.php   # Price HTML filter
+│   ├── class-price-display.php   # Price HTML filter + loop/single fallback hooks
 │   └── class-checkout-fee.php    # Checkout surcharge + JS enqueue
 ├── assets/
 │   └── js/
