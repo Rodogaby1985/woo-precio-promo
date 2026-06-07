@@ -40,6 +40,10 @@ class WPP_Checkout_Fee {
 			return;
 		}
 
+		if ( ! WPP_Settings::get( 'enabled' ) ) {
+			return;
+		}
+
 		if ( ! WC()->session ) {
 			return;
 		}

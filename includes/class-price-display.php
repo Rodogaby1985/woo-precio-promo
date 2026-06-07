@@ -38,6 +38,10 @@ class WPP_Price_Display {
 			return $price_html;
 		}
 
+		if ( ! WPP_Settings::get( 'enabled' ) ) {
+			return $price_html;
+		}
+
 		// Only handle simple products and product variations.
 		// For variable products the parent shows a price range; we leave that
 		// untouched so WooCommerce can handle the "from $X" display naturally.

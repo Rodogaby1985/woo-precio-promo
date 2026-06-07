@@ -44,6 +44,6 @@ function wpp_init() {
  */
 function wpp_missing_wc_notice() {
 	echo '<div class="notice notice-error"><p>' .
-		esc_html__( 'Woo Precio Promo requires WooCommerce to be installed and active.', 'woo-precio-promo' ) .
+		esc_html__( 'Woo Precio Promo requiere que WooCommerce esté instalado y activo.', 'woo-precio-promo' ) .
 		'</p></div>';
 }
