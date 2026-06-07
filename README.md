@@ -38,12 +38,30 @@ The surcharge is recalculated live whenever the customer switches payment method
 
 ## Configuration
 
-The plugin exposes three PHP constants that can be overridden in `wp-config.php` (or any mu-plugin loaded before `plugins_loaded`):
+### Admin settings page (recommended)
+
+Since version 1.1.0 the plugin ships with a dedicated settings page in the WordPress back-end.
+
+1. In the WordPress admin, navigate to **WooCommerce → Precio Promo**.
+2. Adjust the fields to match your store's needs and click **Save Settings**.
+
+| Field | Default | Description |
+|---|---|---|
+| **Financing uplift (%)** | `36` | Percentage added on top of the base price (e.g. `36` for 36 %). |
+| **Number of installments** | `18` | Installments shown in the "cuotas" line. Set to `0` to hide the line. |
+| **Transfer gateway ID** | `bacs` | WooCommerce gateway ID treated as the no-surcharge transfer method. |
+| **Transfer price label** | `con Transferencia` | Text appended to the base price on product pages. |
+| **Installment line template** | `{count} cuotas sin interés de {amount}` | Template for the installment line; `{count}` and `{amount}` are replaced at runtime. |
+| **Checkout fee label** | `Recargo por financiación` | Label for the surcharge line item in the checkout totals. |
+
+### Advanced: PHP constants (backward compatibility)
+
+For programmatic configuration, you can still define constants in `wp-config.php`. Constants take priority over the admin settings, which is useful in multi-environment setups (staging vs. production).
 
 | Constant | Default | Description |
 |---|---|---|
 | `WPP_UPLIFT` | `0.36` | Fractional uplift applied to the base price (0.36 = 36 %). |
-| `WPP_INSTALLMENTS` | `18` | Number of equal installments shown in the "cuotas" line. Set to `0` to hide the line. |
+| `WPP_INSTALLMENTS` | `18` | Number of equal installments. Set to `0` to hide the line. |
 | `WPP_TRANSFER_GATEWAY` | `'bacs'` | WooCommerce gateway ID that is treated as the no-surcharge "transfer" method. |
 
 **Example** – change the uplift to 40 % and use 12 installments:
@@ -61,8 +79,8 @@ To find the correct gateway ID for a third-party payment plugin, check the value
 ## How the surcharge is calculated
 
 ```
-financed_price  = base_price × (1 + WPP_UPLIFT)
-surcharge       = cart_subtotal × WPP_UPLIFT
+financed_price  = base_price × (1 + uplift)
+surcharge       = cart_subtotal × uplift
 ```
 
 Because the cart subtotal is the sum of base prices, adding `subtotal × uplift` makes the grand total equal `subtotal × (1 + uplift)`, which exactly matches the financed prices shown on the product pages.
@@ -99,6 +117,7 @@ Shipping costs are not included in the surcharge base. Only product line items a
 woo-precio-promo/
 ├── woo-precio-promo.php          # Plugin bootstrap & constants
 ├── includes/
+│   ├── class-settings.php        # Admin settings page & WPP_Settings helper
 │   ├── class-price-display.php   # Price HTML filter
 │   └── class-checkout-fee.php    # Checkout surcharge + JS enqueue
 ├── assets/

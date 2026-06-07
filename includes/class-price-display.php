@@ -51,10 +51,13 @@ class WPP_Price_Display {
 			return $price_html;
 		}
 
-		$uplift          = (float) WPP_UPLIFT;
-		$installments    = absint( WPP_INSTALLMENTS );
+		$uplift          = WPP_Settings::get( 'uplift' );
+		$installments    = WPP_Settings::get( 'installments' );
 		$financed_price  = $base_price * ( 1 + $uplift );
 		$installment_amt = ( $installments > 0 ) ? ( $financed_price / $installments ) : 0;
+
+		$transfer_label       = WPP_Settings::get( 'transfer_label' );
+		$installment_template = WPP_Settings::get( 'installment_template' );
 
 		ob_start();
 		?>
@@ -64,16 +67,17 @@ class WPP_Price_Display {
 			</div>
 			<div class="wpp-precio-transferencia">
 				<?php echo wc_price( $base_price ); ?>
-				<span class="wpp-transferencia-label"><?php esc_html_e( 'con Transferencia', 'woo-precio-promo' ); ?></span>
+				<span class="wpp-transferencia-label"><?php echo esc_html( $transfer_label ); ?></span>
 			</div>
 			<?php if ( $installments > 0 && $installment_amt > 0 ) : ?>
 			<div class="wpp-precio-cuotas">
 				<?php
-				printf(
-					/* translators: 1: number of installments, 2: formatted installment amount */
-					esc_html__( '%1$d cuotas sin inter&eacute;s de %2$s', 'woo-precio-promo' ),
-					$installments,
-					wc_price( $installment_amt )
+				echo wp_kses_post(
+					str_replace(
+						array( '{count}', '{amount}' ),
+						array( $installments, wc_price( $installment_amt ) ),
+						$installment_template
+					)
 				);
 				?>
 			</div>
