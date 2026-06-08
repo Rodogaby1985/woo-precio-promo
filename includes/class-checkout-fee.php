@@ -26,6 +26,7 @@ class WPP_Checkout_Fee {
 		add_filter( 'woocommerce_cart_item_price', array( __CLASS__, 'append_transfer_price_note_to_price' ), 20, 3 );
 		add_filter( 'woocommerce_cart_item_subtotal', array( __CLASS__, 'append_transfer_price_note_to_subtotal' ), 20, 3 );
 		add_filter( 'woocommerce_widget_cart_item_quantity', array( __CLASS__, 'append_transfer_price_note_to_mini_cart' ), 20, 3 );
+		add_action( 'woocommerce_review_order_after_cart_contents', array( __CLASS__, 'render_checkout_transfer_rows' ) );
 	}
 
 	/**
@@ -125,6 +126,32 @@ class WPP_Checkout_Fee {
 		}
 
 		return $html . self::get_transfer_note_html( $product, $quantity );
+	}
+
+	/**
+	 * Render transfer-price note rows inside checkout order review.
+	 *
+	 * @return void
+	 */
+	public static function render_checkout_transfer_rows() {
+		if ( ! WPP_Settings::get( 'enabled' ) || ! WC()->cart ) {
+			return;
+		}
+
+		foreach ( WC()->cart->get_cart() as $cart_item_key => $cart_item ) {
+			$product  = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+			$quantity = isset( $cart_item['quantity'] ) ? max( 1, (int) $cart_item['quantity'] ) : 1;
+			if ( ! $product instanceof WC_Product ) {
+				continue;
+			}
+			?>
+			<tr class="wpp-checkout-transfer-note" data-cart-item-key="<?php echo esc_attr( $cart_item_key ); ?>">
+				<td colspan="2">
+					<?php echo self::get_transfer_note_html( $product, $quantity ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				</td>
+			</tr>
+			<?php
+		}
 	}
 
 	/**
