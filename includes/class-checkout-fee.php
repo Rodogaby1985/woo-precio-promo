@@ -21,12 +21,11 @@ class WPP_Checkout_Fee {
 	 * Register hooks.
 	 */
 	public static function init() {
-		// Apply the fee when cart totals are calculated.
 		add_action( 'woocommerce_cart_calculate_fees', array( __CLASS__, 'maybe_add_surcharge' ) );
-
-		// Enqueue the JS that triggers a checkout update when the payment
-		// method radio button changes.
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_scripts' ) );
+		add_filter( 'woocommerce_cart_item_price', array( __CLASS__, 'append_transfer_price_note_to_price' ), 20, 3 );
+		add_filter( 'woocommerce_cart_item_subtotal', array( __CLASS__, 'append_transfer_price_note_to_subtotal' ), 20, 3 );
+		add_filter( 'woocommerce_widget_cart_item_quantity', array( __CLASS__, 'append_transfer_price_note_to_mini_cart' ), 20, 3 );
 	}
 
 	/**
@@ -35,7 +34,6 @@ class WPP_Checkout_Fee {
 	 * @param WC_Cart $cart Current cart instance.
 	 */
 	public static function maybe_add_surcharge( $cart ) {
-		// Bail in back-end non-AJAX contexts (e.g. admin order recalculation).
 		if ( is_admin() && ! wp_doing_ajax() ) {
 			return;
 		}
@@ -50,7 +48,6 @@ class WPP_Checkout_Fee {
 
 		$chosen_gateway = WC()->session->get( 'chosen_payment_method' );
 
-		// If no gateway is chosen yet, or it is the transfer gateway, do nothing.
 		if ( empty( $chosen_gateway ) || $chosen_gateway === WPP_Settings::get( 'transfer_gateway' ) ) {
 			return;
 		}
@@ -65,11 +62,102 @@ class WPP_Checkout_Fee {
 		$surcharge = $subtotal * $uplift;
 
 		$cart->add_fee(
-			/* translators: displayed as a line item in the cart/checkout totals */
 			WPP_Settings::get( 'fee_label' ),
 			$surcharge,
-			false // taxable – set to true if surcharges should carry tax in your store
+			false
 		);
+	}
+
+	/**
+	 * Add transfer-price note below item unit price in cart.
+	 *
+	 * @param string $price_html Current item price HTML.
+	 * @param array  $cart_item  Cart item data.
+	 * @param string $cart_item_key Cart item key.
+	 * @return string
+	 */
+	public static function append_transfer_price_note_to_price( $price_html, $cart_item, $cart_item_key ) {
+		unset( $cart_item_key );
+
+		$product = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+		if ( ! $product instanceof WC_Product ) {
+			return $price_html;
+		}
+
+		return $price_html . self::get_transfer_note_html( $product, 1 );
+	}
+
+	/**
+	 * Add transfer-price note below line subtotal in cart.
+	 *
+	 * @param string $subtotal_html Current subtotal HTML.
+	 * @param array  $cart_item Cart item data.
+	 * @param string $cart_item_key Cart item key.
+	 * @return string
+	 */
+	public static function append_transfer_price_note_to_subtotal( $subtotal_html, $cart_item, $cart_item_key ) {
+		unset( $cart_item_key );
+
+		$product  = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+		$quantity = isset( $cart_item['quantity'] ) ? max( 1, (int) $cart_item['quantity'] ) : 1;
+		if ( ! $product instanceof WC_Product ) {
+			return $subtotal_html;
+		}
+
+		return $subtotal_html . self::get_transfer_note_html( $product, $quantity );
+	}
+
+	/**
+	 * Add transfer-price note to mini-cart line.
+	 *
+	 * @param string $html Existing mini-cart quantity/price HTML.
+	 * @param array  $cart_item Cart item data.
+	 * @param string $cart_item_key Cart item key.
+	 * @return string
+	 */
+	public static function append_transfer_price_note_to_mini_cart( $html, $cart_item, $cart_item_key ) {
+		unset( $cart_item_key );
+
+		$product  = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+		$quantity = isset( $cart_item['quantity'] ) ? max( 1, (int) $cart_item['quantity'] ) : 1;
+		if ( ! $product instanceof WC_Product ) {
+			return $html;
+		}
+
+		return $html . self::get_transfer_note_html( $product, $quantity );
+	}
+
+	/**
+	 * Build red transfer-price note HTML.
+	 *
+	 * @param WC_Product $product Product instance.
+	 * @param int        $quantity Quantity multiplier.
+	 * @return string
+	 */
+	private static function get_transfer_note_html( $product, $quantity ) {
+		if ( ! WPP_Settings::get( 'enabled' ) ) {
+			return '';
+		}
+
+		$base_price = (float) $product->get_price();
+		if ( $product->is_type( 'variable' ) ) {
+			$base_price = (float) $product->get_variation_price( 'min', false );
+		}
+
+		if ( $base_price <= 0 ) {
+			return '';
+		}
+
+		$total_transfer_price = $base_price * max( 1, (int) $quantity );
+
+		ob_start();
+		?>
+		<div class="wpp-transfer-note" style="margin-top:4px; line-height:1.3; color:#c0392b; font-size:0.92em; font-weight:700;">
+			<div class="wpp-transfer-note-price"><?php echo wp_kses_post( wc_price( $total_transfer_price ) ); ?></div>
+			<div class="wpp-transfer-note-label"><?php echo esc_html__( 'Precio por pago con transferencia', 'woo-precio-promo' ); ?></div>
+		</div>
+		<?php
+		return ob_get_clean();
 	}
 
 	/**
