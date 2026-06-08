@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Woo Precio Promo
  * Plugin URI:        https://github.com/Rodogaby1985/woo-precio-promo
- * Description:       Muestra el precio financiado/de lista (base + porcentaje de incremento) en las páginas de productos y aplica un recargo al finalizar la compra cuando se utiliza una pasarela de pago distinta a la transferencia bancaria. Se puede configurar desde WooCommerce → Precio Promo en el panel de administración de WordPress..
- * Version:           1.1.0
+ * Description:       Muestra el precio financiado/de lista (base + porcentaje de incremento) en las páginas de productos, agrega referencia visual del precio por transferencia en catálogo/carrito/checkout y aplica un recargo al finalizar la compra cuando se utiliza una pasarela de pago distinta a la transferencia bancaria.
+ * Version:           1.1.1
  * Author:            MoobeUP
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
