@@ -5,7 +5,7 @@
  * Replaces the standard WooCommerce price HTML with a three-line block:
  *
  *   [financed price – smaller, gray]
- *   [base/transfer price – prominent, red]  con Transferencia
+ *   [base/transfer price – prominent, red]  precio por pago con transferencia
  *   [installments line – small, dark gray]
  *
  * @package WooPrecioPromo
@@ -81,7 +81,6 @@ class WPP_Price_Display {
 	 * @return string
 	 */
 	public static function custom_price_html( $price_html, $product ) {
-		// Skip in wp-admin (non-AJAX) to avoid breaking order screens, etc.
 		if ( is_admin() && ! wp_doing_ajax() ) {
 			return $price_html;
 		}
@@ -115,18 +114,17 @@ class WPP_Price_Display {
 		$financed_price  = $base_price * ( 1 + $uplift );
 		$installment_amt = ( $installments > 0 ) ? ( $financed_price / $installments ) : 0;
 
-		$transfer_label       = WPP_Settings::get( 'transfer_label' );
-		$installment_template = WPP_Settings::get( 'installment_template' );
-
 		ob_start();
 		?>
 		<div class="wpp-precio-wrapper">
 			<div class="wpp-precio-financiado">
-				<?php echo wc_price( $financed_price ); ?>
+				<?php echo wp_kses_post( wc_price( $financed_price ) ); ?>
 			</div>
 			<div class="wpp-precio-transferencia">
-				<?php echo wc_price( $base_price ); ?>
-				<span class="wpp-transferencia-label"><?php echo esc_html( $transfer_label ); ?></span>
+				<?php echo wp_kses_post( wc_price( $base_price ) ); ?>
+			</div>
+			<div class="wpp-transferencia-caption">
+				<?php echo esc_html__( 'Precio por pago con transferencia', 'woo-precio-promo' ); ?>
 			</div>
 			<?php if ( $installments > 0 && $installment_amt > 0 ) : ?>
 			<div class="wpp-precio-cuotas">
@@ -135,7 +133,7 @@ class WPP_Price_Display {
 					str_replace(
 						array( '{count}', '{amount}' ),
 						array( $installments, wc_price( $installment_amt ) ),
-						$installment_template
+						WPP_Settings::get( 'installment_template' )
 					)
 				);
 				?>
@@ -148,7 +146,7 @@ class WPP_Price_Display {
 		.wpp-precio-financiado .woocommerce-Price-amount { font-size: inherit; color: inherit; }
 		.wpp-precio-transferencia { font-size: 1.6em; color: #c0392b; font-weight: 700; }
 		.wpp-precio-transferencia .woocommerce-Price-amount { font-size: inherit; color: inherit; }
-		.wpp-transferencia-label { font-size: 0.6em; color: #c0392b; font-weight: 400; vertical-align: middle; margin-left: 4px; }
+		.wpp-transferencia-caption { font-size: 0.8em; color: #c0392b; font-weight: 700; margin-top: 2px; text-transform: none; }
 		.wpp-precio-cuotas { font-size: 0.85em; color: #555; margin-top: 2px; }
 		.wpp-precio-cuotas .woocommerce-Price-amount { font-size: inherit; color: inherit; }
 		</style>
