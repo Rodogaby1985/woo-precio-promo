@@ -16,6 +16,11 @@ defined( 'ABSPATH' ) || exit;
 class WPP_Checkout_Fee {
 
 	/**
+	 * Blank visible label used for hidden non-transfer adjustments.
+	 */
+	const HIDDEN_FEE_LABEL = ' ';
+
+	/**
 	 * Epsilon used when comparing calculated fee amounts.
 	 */
 	const AMOUNT_EPSILON = 0.0001;
@@ -80,7 +85,7 @@ class WPP_Checkout_Fee {
 		}
 
 		$cart->add_fee(
-			' ',
+			self::HIDDEN_FEE_LABEL,
 			$adjustment,
 			false
 		);
@@ -187,7 +192,7 @@ class WPP_Checkout_Fee {
 			'wpp-checkout-refresh',
 			plugin_dir_url( dirname( __FILE__ ) ) . 'assets/js/checkout-refresh.js',
 			array( 'jquery' ),
-			'1.1.2',
+			WPP_PLUGIN_VERSION,
 			true
 		);
 	}
@@ -202,7 +207,7 @@ class WPP_Checkout_Fee {
 		return null !== self::$hidden_adjustment_amount
 			&& isset( $fee->amount )
 			&& isset( $fee->name )
-			&& '' === trim( $fee->name )
+			&& self::HIDDEN_FEE_LABEL === $fee->name
 			&& (float) $fee->amount > 0
 			&& abs( (float) $fee->amount - (float) self::$hidden_adjustment_amount ) < self::AMOUNT_EPSILON;
 	}
