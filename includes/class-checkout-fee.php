@@ -1,11 +1,9 @@
 <?php
 /**
- * Checkout fee / surcharge logic.
+ * Checkout fee / payment-adjustment logic.
  *
- * When the customer chooses a payment method other than the configured
- * "transfer" gateway (default: bacs), a surcharge equal to WPP_UPLIFT of
- * the cart subtotal is added so the final amount matches the financed/list
- * price displayed on product pages.
+ * Keeps the financed/list total for non-transfer gateways while showing a
+ * visible discount line only when the configured transfer gateway is chosen.
  *
  * @package WooPrecioPromo
  */
@@ -18,23 +16,39 @@ defined( 'ABSPATH' ) || exit;
 class WPP_Checkout_Fee {
 
 	/**
+	 * Blank visible label used for hidden non-transfer adjustments.
+	 */
+	const HIDDEN_FEE_LABEL = ' ';
+
+	/**
+	 * Epsilon used when comparing calculated fee amounts.
+	 */
+	const AMOUNT_EPSILON = 0.0001;
+
+	/**
+	 * Amount of the hidden non-transfer adjustment added in the current request.
+	 */
+	private static $hidden_adjustment_amount = null;
+
+	/**
 	 * Register hooks.
 	 */
 	public static function init() {
 		add_action( 'woocommerce_cart_calculate_fees', array( __CLASS__, 'maybe_add_surcharge' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_scripts' ) );
-		add_filter( 'woocommerce_cart_item_price', array( __CLASS__, 'append_transfer_price_note_to_price' ), 20, 3 );
 		add_filter( 'woocommerce_cart_item_subtotal', array( __CLASS__, 'append_transfer_price_note_to_subtotal' ), 20, 3 );
 		add_filter( 'woocommerce_widget_cart_item_quantity', array( __CLASS__, 'append_transfer_price_note_to_mini_cart' ), 20, 3 );
-		add_action( 'woocommerce_review_order_after_cart_contents', array( __CLASS__, 'render_checkout_transfer_rows' ) );
+		add_filter( 'woocommerce_cart_totals_fee_html', array( __CLASS__, 'maybe_hide_adjustment_fee_html' ), 10, 2 );
 	}
 
 	/**
-	 * Conditionally add a financing surcharge to the cart.
+	 * Conditionally add the checkout adjustment to the cart.
 	 *
 	 * @param WC_Cart $cart Current cart instance.
 	 */
 	public static function maybe_add_surcharge( $cart ) {
+		self::$hidden_adjustment_amount = null;
+
 		if ( is_admin() && ! wp_doing_ajax() ) {
 			return;
 		}
@@ -47,45 +61,35 @@ class WPP_Checkout_Fee {
 			return;
 		}
 
-		$chosen_gateway = WC()->session->get( 'chosen_payment_method' );
-
-		if ( empty( $chosen_gateway ) || $chosen_gateway === WPP_Settings::get( 'transfer_gateway' ) ) {
-			return;
-		}
-
 		$uplift   = WPP_Settings::get( 'uplift' );
 		$subtotal = $cart->get_subtotal();
 
-		if ( $subtotal <= 0 ) {
+		if ( $subtotal <= 0 || $uplift <= 0 ) {
 			return;
 		}
 
-		$surcharge = $subtotal * $uplift;
+		$adjustment     = $subtotal * $uplift;
+		$chosen_gateway = WC()->session->get( 'chosen_payment_method' );
 
-		$cart->add_fee(
-			WPP_Settings::get( 'fee_label' ),
-			$surcharge,
-			false
-		);
-	}
-
-	/**
-	 * Add transfer-price note below item unit price in cart.
-	 *
-	 * @param string $price_html Current item price HTML.
-	 * @param array  $cart_item  Cart item data.
-	 * @param string $cart_item_key Cart item key.
-	 * @return string
-	 */
-	public static function append_transfer_price_note_to_price( $price_html, $cart_item, $cart_item_key ) {
-		unset( $cart_item_key );
-
-		$product = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
-		if ( ! $product instanceof WC_Product ) {
-			return $price_html;
+		if ( empty( $chosen_gateway ) ) {
+			return;
 		}
 
-		return $price_html . self::get_transfer_note_html( $product, 1 );
+		if ( $chosen_gateway === WPP_Settings::get( 'transfer_gateway' ) ) {
+			$cart->add_fee(
+				WPP_Settings::get( 'fee_label' ),
+				-$adjustment,
+				false
+			);
+			return;
+		}
+
+		$cart->add_fee(
+			self::HIDDEN_FEE_LABEL,
+			$adjustment,
+			false
+		);
+		self::$hidden_adjustment_amount = $adjustment;
 	}
 
 	/**
@@ -129,29 +133,18 @@ class WPP_Checkout_Fee {
 	}
 
 	/**
-	 * Render transfer-price note rows inside checkout order review.
+	 * Hide the visual fee output for non-transfer payment adjustments.
 	 *
-	 * @return void
+	 * @param string $fee_html Existing fee HTML.
+	 * @param object $fee Fee object.
+	 * @return string
 	 */
-	public static function render_checkout_transfer_rows() {
-		if ( ! WPP_Settings::get( 'enabled' ) || ! WC()->cart ) {
-			return;
+	public static function maybe_hide_adjustment_fee_html( $fee_html, $fee ) {
+		if ( self::is_hidden_adjustment_fee( $fee ) ) {
+			return '<span class="wpp-hidden-adjustment-marker"></span>';
 		}
 
-		foreach ( WC()->cart->get_cart() as $cart_item_key => $cart_item ) {
-			$product  = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
-			$quantity = isset( $cart_item['quantity'] ) ? max( 1, (int) $cart_item['quantity'] ) : 1;
-			if ( ! $product instanceof WC_Product ) {
-				continue;
-			}
-			?>
-			<tr class="wpp-checkout-transfer-note" data-cart-item-key="<?php echo esc_attr( $cart_item_key ); ?>">
-				<td colspan="2">
-					<?php echo self::get_transfer_note_html( $product, $quantity ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				</td>
-			</tr>
-			<?php
-		}
+		return $fee_html;
 	}
 
 	/**
@@ -188,10 +181,10 @@ class WPP_Checkout_Fee {
 	}
 
 	/**
-	 * Enqueue the front-end script on checkout pages.
+	 * Enqueue the front-end script on cart and checkout pages.
 	 */
 	public static function enqueue_scripts() {
-		if ( ! is_checkout() ) {
+		if ( ! is_cart() && ! is_checkout() ) {
 			return;
 		}
 
@@ -199,8 +192,23 @@ class WPP_Checkout_Fee {
 			'wpp-checkout-refresh',
 			plugin_dir_url( dirname( __FILE__ ) ) . 'assets/js/checkout-refresh.js',
 			array( 'jquery' ),
-			'1.0.0',
+			WPP_PLUGIN_VERSION,
 			true
 		);
+	}
+
+	/**
+	 * Check whether a fee is the hidden non-transfer adjustment.
+	 *
+	 * @param object $fee Fee object.
+	 * @return bool
+	 */
+	private static function is_hidden_adjustment_fee( $fee ) {
+		return null !== self::$hidden_adjustment_amount
+			&& isset( $fee->amount )
+			&& isset( $fee->name )
+			&& self::HIDDEN_FEE_LABEL === $fee->name
+			&& (float) $fee->amount > 0
+			&& abs( (float) $fee->amount - (float) self::$hidden_adjustment_amount ) < self::AMOUNT_EPSILON;
 	}
 }

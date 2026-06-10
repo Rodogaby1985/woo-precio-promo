@@ -69,8 +69,8 @@ class WPP_Settings {
 			 */
 			/* translators: installment line template; {count} and {amount} are replaced at runtime */
 			'installment_template' => __( '{count} cuotas sin interés de {amount}', 'woo-precio-promo' ),
-			/* translators: label shown as a line item in the checkout totals */
-			'fee_label'            => __( 'Recargo por financiación', 'woo-precio-promo' ),
+			/* translators: label shown as a line item in the checkout totals for transfer payments */
+			'fee_label'            => __( 'Descuento por forma de pago', 'woo-precio-promo' ),
 		);
 	}
 
@@ -272,7 +272,7 @@ class WPP_Settings {
 
 		add_settings_field(
 			'wpp_field_fee_label',
-			__( 'Texto del recargo en checkout', 'woo-precio-promo' ),
+			__( 'Texto del descuento en checkout', 'woo-precio-promo' ),
 			array( __CLASS__, 'field_fee_label' ),
 			self::PAGE_SLUG,
 			'wpp_section_text'
@@ -331,7 +331,7 @@ class WPP_Settings {
 
 	/** @internal */
 	public static function section_calc_description() {
-		echo '<p>' . esc_html__( 'Definí si el plugin está activo y cómo se calcula el precio financiado y el recargo.', 'woo-precio-promo' ) . '</p>';
+		echo '<p>' . esc_html__( 'Definí si el plugin está activo y cómo se calcula el precio financiado y el ajuste por medio de pago.', 'woo-precio-promo' ) . '</p>';
 	}
 
 	/** @internal */
@@ -352,7 +352,7 @@ class WPP_Settings {
 			esc_attr( self::OPTION_KEY ),
 			checked( 1, $value, false ),
 			esc_html__( 'Activar comportamiento de Precio Promo', 'woo-precio-promo' ),
-			esc_html__( 'Si lo desactivás, el plugin no modifica precios ni agrega recargos en el checkout.', 'woo-precio-promo' )
+			esc_html__( 'Si lo desactivás, el plugin no modifica precios ni agrega ajustes en el checkout.', 'woo-precio-promo' )
 		);
 	}
 
@@ -388,7 +388,7 @@ class WPP_Settings {
 			'<input type="text" id="wpp_transfer_gateway" name="%s[transfer_gateway]" value="%s" class="regular-text"><p class="description">%s</p>',
 			esc_attr( self::OPTION_KEY ),
 			esc_attr( $value ),
-			esc_html__( 'ID de WooCommerce que se considera medio sin recargo (por defecto: bacs).', 'woo-precio-promo' )
+			esc_html__( 'ID de WooCommerce que se considera medio de transferencia para aplicar el descuento (por defecto: bacs).', 'woo-precio-promo' )
 		);
 	}
 
@@ -425,7 +425,7 @@ class WPP_Settings {
 			'<input type="text" id="wpp_fee_label" name="%s[fee_label]" value="%s" class="regular-text"><p class="description">%s</p>',
 			esc_attr( self::OPTION_KEY ),
 			esc_attr( $value ),
-			esc_html__( 'Texto que se muestra como línea de recargo en el total del checkout.', 'woo-precio-promo' )
+			esc_html__( 'Texto que se muestra como línea de descuento cuando se elige la transferencia en el checkout.', 'woo-precio-promo' )
 		);
 	}
 
