@@ -16,9 +16,9 @@ defined( 'ABSPATH' ) || exit;
 class WPP_Checkout_Fee {
 
 	/**
-	 * Invisible internal fee label used for non-transfer adjustments.
+	 * Amount of the hidden non-transfer adjustment added in the current request.
 	 */
-	const HIDDEN_FEE_LABEL = "\xE2\x80\x8B";
+	private static $hidden_adjustment_amount = null;
 
 	/**
 	 * Register hooks.
@@ -37,6 +37,8 @@ class WPP_Checkout_Fee {
 	 * @param WC_Cart $cart Current cart instance.
 	 */
 	public static function maybe_add_surcharge( $cart ) {
+		self::$hidden_adjustment_amount = null;
+
 		if ( is_admin() && ! wp_doing_ajax() ) {
 			return;
 		}
@@ -73,10 +75,11 @@ class WPP_Checkout_Fee {
 		}
 
 		$cart->add_fee(
-			self::HIDDEN_FEE_LABEL,
+			' ',
 			$adjustment,
 			false
 		);
+		self::$hidden_adjustment_amount = $adjustment;
 	}
 
 	/**
@@ -128,7 +131,7 @@ class WPP_Checkout_Fee {
 	 */
 	public static function maybe_hide_adjustment_fee_html( $fee_html, $fee ) {
 		if ( self::is_hidden_adjustment_fee( $fee ) ) {
-			return '<span class="wpp-hidden-adjustment-marker" style="display:none;"></span>';
+			return '<span class="wpp-hidden-adjustment-marker"></span>';
 		}
 
 		return $fee_html;
@@ -191,6 +194,11 @@ class WPP_Checkout_Fee {
 	 * @return bool
 	 */
 	private static function is_hidden_adjustment_fee( $fee ) {
-		return isset( $fee->name ) && self::HIDDEN_FEE_LABEL === $fee->name;
+		return null !== self::$hidden_adjustment_amount
+			&& isset( $fee->amount )
+			&& isset( $fee->name )
+			&& '' === trim( $fee->name )
+			&& (float) $fee->amount > 0
+			&& abs( (float) $fee->amount - (float) self::$hidden_adjustment_amount ) < 0.0001;
 	}
 }

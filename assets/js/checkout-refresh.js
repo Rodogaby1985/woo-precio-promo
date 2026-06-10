@@ -9,9 +9,7 @@ jQuery( function ( $ ) {
 	'use strict';
 
 	function hideInternalAdjustmentRows() {
-		$( '.cart_totals tr.fee, .shop_table tr.fee, .woocommerce-checkout-review-order-table tr.fee' )
-			.has( '.wpp-hidden-adjustment-marker' )
-			.hide();
+		$( '.wpp-hidden-adjustment-marker' ).closest( 'tr' ).hide();
 	}
 
 	$( 'form.checkout' ).on( 'change', 'input[name="payment_method"]', function () {
