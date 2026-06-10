@@ -16,6 +16,11 @@ defined( 'ABSPATH' ) || exit;
 class WPP_Checkout_Fee {
 
 	/**
+	 * Epsilon used when comparing calculated fee amounts.
+	 */
+	const AMOUNT_EPSILON = 0.0001;
+
+	/**
 	 * Amount of the hidden non-transfer adjustment added in the current request.
 	 */
 	private static $hidden_adjustment_amount = null;
@@ -199,6 +204,6 @@ class WPP_Checkout_Fee {
 			&& isset( $fee->name )
 			&& '' === trim( $fee->name )
 			&& (float) $fee->amount > 0
-			&& abs( (float) $fee->amount - (float) self::$hidden_adjustment_amount ) < 0.0001;
+			&& abs( (float) $fee->amount - (float) self::$hidden_adjustment_amount ) < self::AMOUNT_EPSILON;
 	}
 }
