@@ -40,6 +40,40 @@ class WPP_Settings {
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'add_menu_page' ) );
 		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
+		add_action( 'plugins_loaded', array( __CLASS__, 'maybe_migrate_settings' ), 5 );
+	}
+
+	// -----------------------------------------------------------------------
+	// Migration
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Migrate saved settings that use old/renamed defaults.
+	 *
+	 * Called early on plugins_loaded so the correct values are available
+	 * before any fee or price logic runs. Guarded by a DB version flag so the
+	 * migration only executes once.
+	 */
+	public static function maybe_migrate_settings() {
+		if ( get_option( 'wpp_db_version' ) === WPP_PLUGIN_VERSION ) {
+			return;
+		}
+
+		$options = (array) get_option( self::OPTION_KEY, array() );
+		$changed = false;
+
+		// fee_label was previously called "Recargo por financiación" in older
+		// releases. Replace it with the current correct label.
+		if ( isset( $options['fee_label'] ) && 'Recargo por financiación' === $options['fee_label'] ) {
+			$options['fee_label'] = self::defaults()['fee_label'];
+			$changed              = true;
+		}
+
+		if ( $changed ) {
+			update_option( self::OPTION_KEY, $options );
+		}
+
+		update_option( 'wpp_db_version', WPP_PLUGIN_VERSION );
 	}
 
 	// -----------------------------------------------------------------------

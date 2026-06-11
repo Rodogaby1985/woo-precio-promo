@@ -168,12 +168,9 @@ class WPP_Checkout_Fee {
 			return '';
 		}
 
-		$total_transfer_price = $base_price * max( 1, (int) $quantity );
-
 		ob_start();
 		?>
 		<div class="wpp-transfer-note" style="margin-top:4px; line-height:1.3; color:#c0392b; font-size:0.92em; font-weight:700;">
-			<div class="wpp-transfer-note-price"><?php echo wp_kses_post( wc_price( $total_transfer_price ) ); ?></div>
 			<div class="wpp-transfer-note-label"><?php echo esc_html__( 'Precio por pago con transferencia', 'woo-precio-promo' ); ?></div>
 		</div>
 		<?php
