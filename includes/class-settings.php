@@ -190,10 +190,13 @@ class WPP_Settings {
 				return $defaults['installment_template'];
 
 			case 'fee_label':
-				if ( ! empty( $options['fee_label'] ) ) {
-					return $options['fee_label'];
+				$label = ! empty( $options['fee_label'] ) ? $options['fee_label'] : $defaults['fee_label'];
+				// Legacy guard: old installs may have persisted the old surcharge label.
+				// Always return the current correct label regardless of what is in the DB.
+				if ( 'Recargo por financiación' === $label ) {
+					return $defaults['fee_label'];
 				}
-				return $defaults['fee_label'];
+				return $label;
 
 			default:
 				return isset( $defaults[ $key ] ) ? $defaults[ $key ] : null;
