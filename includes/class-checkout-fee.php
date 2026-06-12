@@ -39,6 +39,7 @@ class WPP_Checkout_Fee {
 		add_filter( 'woocommerce_cart_item_subtotal', array( __CLASS__, 'append_transfer_price_note_to_subtotal' ), 20, 3 );
 		add_filter( 'woocommerce_widget_cart_item_quantity', array( __CLASS__, 'append_transfer_price_note_to_mini_cart' ), 20, 3 );
 		add_filter( 'woocommerce_cart_totals_fee_html', array( __CLASS__, 'maybe_hide_adjustment_fee_html' ), 10, 2 );
+		add_filter( 'woocommerce_cart_subtotal', array( __CLASS__, 'filter_checkout_cart_subtotal' ), 20, 3 );
 	}
 
 	/**
@@ -93,7 +94,8 @@ class WPP_Checkout_Fee {
 	}
 
 	/**
-	 * Add transfer-price note below line subtotal in cart.
+	 * Add transfer-price note below line subtotal in cart, or show financed
+	 * subtotal when a non-transfer gateway is selected in checkout.
 	 *
 	 * @param string $subtotal_html Current subtotal HTML.
 	 * @param array  $cart_item Cart item data.
@@ -109,10 +111,16 @@ class WPP_Checkout_Fee {
 			return $subtotal_html;
 		}
 
-		if ( is_checkout() && ! self::is_transfer_gateway_selected() ) {
-			return $subtotal_html;
+		if ( is_checkout() ) {
+			if ( ! self::is_transfer_gateway_selected() ) {
+				// Non-transfer checkout: display the financed (higher) price per line.
+				return self::get_financed_subtotal_html( $product, $quantity, $subtotal_html );
+			}
+			// Transfer checkout: show the base subtotal + transfer note.
+			return $subtotal_html . self::get_transfer_note_html( $product, $quantity );
 		}
 
+		// Cart and other contexts: always append transfer note.
 		return $subtotal_html . self::get_transfer_note_html( $product, $quantity );
 	}
 
@@ -152,6 +160,47 @@ class WPP_Checkout_Fee {
 	}
 
 	/**
+	 * Override the cart subtotal display in checkout for non-transfer payment.
+	 *
+	 * When a non-transfer gateway is selected the product lines are shown at the
+	 * financed (higher) price, so the subtotal row must reflect the same amount
+	 * to remain numerically consistent with the displayed line items and the
+	 * final order total.
+	 *
+	 * @param string  $cart_subtotal_html Formatted subtotal HTML produced by WooCommerce.
+	 * @param bool    $compound           Whether the subtotal includes compound taxes.
+	 * @param WC_Cart $cart               Current cart instance.
+	 * @return string
+	 */
+	public static function filter_checkout_cart_subtotal( $cart_subtotal_html, $compound, $cart ) {
+		unset( $compound );
+
+		if ( ! is_checkout() ) {
+			return $cart_subtotal_html;
+		}
+
+		if ( self::is_transfer_gateway_selected() ) {
+			return $cart_subtotal_html;
+		}
+
+		if ( ! WPP_Settings::get( 'enabled' ) ) {
+			return $cart_subtotal_html;
+		}
+
+		$uplift = WPP_Settings::get( 'uplift' );
+		if ( $uplift <= 0 ) {
+			return $cart_subtotal_html;
+		}
+
+		$base_subtotal = $cart->get_subtotal();
+		if ( $base_subtotal <= 0 ) {
+			return $cart_subtotal_html;
+		}
+
+		return wp_kses_post( wc_price( $base_subtotal * ( 1 + $uplift ) ) );
+	}
+
+	/**
 	 * Build red transfer-price note HTML.
 	 *
 	 * @param WC_Product $product Product instance.
@@ -179,6 +228,42 @@ class WPP_Checkout_Fee {
 		</div>
 		<?php
 		return ob_get_clean();
+	}
+
+	/**
+	 * Build financed line-subtotal HTML for non-transfer checkout.
+	 *
+	 * Returns the base price multiplied by the uplift and the quantity,
+	 * formatted as a WooCommerce price string.  Falls back to $fallback_html
+	 * when the price cannot be determined or the plugin is disabled.
+	 *
+	 * @param WC_Product $product       Product instance.
+	 * @param int        $quantity      Line quantity.
+	 * @param string     $fallback_html HTML returned when calculation is not possible.
+	 * @return string
+	 */
+	private static function get_financed_subtotal_html( $product, $quantity, $fallback_html = '' ) {
+		if ( ! WPP_Settings::get( 'enabled' ) ) {
+			return $fallback_html;
+		}
+
+		$uplift = WPP_Settings::get( 'uplift' );
+		if ( $uplift <= 0 ) {
+			return $fallback_html;
+		}
+
+		$base_price = (float) $product->get_price();
+		if ( $product->is_type( 'variable' ) ) {
+			$base_price = (float) $product->get_variation_price( 'min', false );
+		}
+
+		if ( $base_price <= 0 ) {
+			return $fallback_html;
+		}
+
+		$financed_subtotal = $base_price * ( 1 + $uplift ) * $quantity;
+
+		return wp_kses_post( wc_price( $financed_subtotal ) );
 	}
 
 	/**
