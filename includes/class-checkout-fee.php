@@ -237,6 +237,10 @@ class WPP_Checkout_Fee {
 	 * formatted as a WooCommerce price string.  Falls back to $fallback_html
 	 * when the price cannot be determined or the plugin is disabled.
 	 *
+	 * Note: in cart/checkout contexts $product is always the concrete product or
+	 * the already-selected variation instance, so $product->get_price() returns
+	 * the correct unit price directly without any variable-type special-casing.
+	 *
 	 * @param WC_Product $product       Product instance.
 	 * @param int        $quantity      Line quantity.
 	 * @param string     $fallback_html HTML returned when calculation is not possible.
@@ -253,9 +257,6 @@ class WPP_Checkout_Fee {
 		}
 
 		$base_price = (float) $product->get_price();
-		if ( $product->is_type( 'variable' ) ) {
-			$base_price = (float) $product->get_variation_price( 'min', false );
-		}
 
 		if ( $base_price <= 0 ) {
 			return $fallback_html;
