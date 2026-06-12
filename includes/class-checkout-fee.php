@@ -109,6 +109,10 @@ class WPP_Checkout_Fee {
 			return $subtotal_html;
 		}
 
+		if ( is_checkout() && ! self::is_transfer_gateway_selected() ) {
+			return $subtotal_html;
+		}
+
 		return $subtotal_html . self::get_transfer_note_html( $product, $quantity );
 	}
 
@@ -175,6 +179,25 @@ class WPP_Checkout_Fee {
 		</div>
 		<?php
 		return ob_get_clean();
+	}
+
+	/**
+	 * Check whether the currently selected checkout gateway is the configured
+	 * transfer gateway.
+	 *
+	 * @return bool
+	 */
+	private static function is_transfer_gateway_selected() {
+		if ( ! WC()->session ) {
+			return false;
+		}
+
+		$chosen_gateway = WC()->session->get( 'chosen_payment_method' );
+		if ( empty( $chosen_gateway ) ) {
+			return false;
+		}
+
+		return $chosen_gateway === WPP_Settings::get( 'transfer_gateway' );
 	}
 
 	/**
