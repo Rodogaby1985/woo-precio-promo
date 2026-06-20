@@ -2,10 +2,17 @@
 /**
  * Price display logic.
  *
- * Replaces the standard WooCommerce price HTML with a three-line block:
+ * For products NOT on sale, replaces the standard WooCommerce price HTML with:
  *
  *   [financed price – smaller, gray]
  *   [base/transfer price – prominent, red]  precio por pago con transferencia
+ *   [installments line – small, dark gray]
+ *
+ * For products ON sale, replaces the standard WooCommerce price HTML with:
+ *
+ *   [regular price – smaller, gray, struck through]
+ *   [other-payment price = sale price × (1 + uplift) – smaller, gray]
+ *   [sale/transfer price – prominent, red]  precio por pago con transferencia
  *   [installments line – small, dark gray]
  *
  * @package WooPrecioPromo
@@ -100,10 +107,32 @@ class WPP_Price_Display {
 	/**
 	 * Build promo price block for a product.
 	 *
+	 * Branches to the sale-product layout when the product is on sale,
+	 * otherwise falls back to the standard financed-price layout.
+	 *
 	 * @param WC_Product $product Product object.
 	 * @return string
 	 */
 	private static function build_custom_price_html( $product ) {
+		if ( $product->is_on_sale() ) {
+			return self::build_sale_price_html( $product );
+		}
+
+		return self::build_regular_price_html( $product );
+	}
+
+	/**
+	 * Build promo price block for a product that is NOT on sale.
+	 *
+	 * Layout:
+	 *   [financed price – smaller, gray]
+	 *   [base/transfer price – prominent, red]
+	 *   [installments line – small, dark gray]
+	 *
+	 * @param WC_Product $product Product object.
+	 * @return string
+	 */
+	private static function build_regular_price_html( $product ) {
 		$base_price = self::get_base_price_for_display( $product );
 		if ( $base_price <= 0 ) {
 			return '';
@@ -140,22 +169,76 @@ class WPP_Price_Display {
 			</div>
 			<?php endif; ?>
 		</div>
-		<style>
-		.wpp-precio-wrapper { line-height: 1.4; }
-		.wpp-precio-financiado { font-size: 0.85em; color: #9b9b9b; text-decoration: none; }
-		.wpp-precio-financiado .woocommerce-Price-amount { font-size: inherit; color: inherit; }
-		.wpp-precio-transferencia { font-size: 1.6em; color: #c0392b; font-weight: 700; }
-		.wpp-precio-transferencia .woocommerce-Price-amount { font-size: inherit; color: inherit; }
-		.wpp-transferencia-caption { font-size: 0.8em; color: #c0392b; font-weight: 700; margin-top: 2px; text-transform: none; }
-		.wpp-precio-cuotas { font-size: 0.85em; color: #555; margin-top: 2px; }
-		.wpp-precio-cuotas .woocommerce-Price-amount { font-size: inherit; color: inherit; }
-		</style>
+		<?php echo self::get_wpp_styles(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 		<?php
 		return ob_get_clean();
 	}
 
 	/**
-	 * Resolve base price used for promo display.
+	 * Build promo price block for a product that IS on sale.
+	 *
+	 * Layout:
+	 *   [regular price – smaller, gray, struck through]
+	 *   [other-payment price = sale price × (1 + uplift) – smaller, gray]
+	 *   [sale/transfer price – prominent, red]
+	 *   [installments line – small, dark gray]
+	 *
+	 * Falls back to the regular layout when sale prices cannot be resolved
+	 * or are inconsistent (e.g. sale price ≥ regular price).
+	 *
+	 * @param WC_Product $product Product object.
+	 * @return string
+	 */
+	private static function build_sale_price_html( $product ) {
+		$prices        = self::get_sale_prices_for_display( $product );
+		$regular_price = $prices['regular'];
+		$sale_price    = $prices['sale'];
+
+		if ( $sale_price <= 0 || $regular_price <= 0 || $sale_price >= $regular_price ) {
+			return self::build_regular_price_html( $product );
+		}
+
+		$uplift          = WPP_Settings::get( 'uplift' );
+		$installments    = WPP_Settings::get( 'installments' );
+		$other_price     = $sale_price * ( 1 + $uplift );
+		$installment_amt = ( $installments > 0 ) ? ( $other_price / $installments ) : 0;
+
+		ob_start();
+		?>
+		<div class="wpp-precio-wrapper">
+			<div class="wpp-precio-regular-tachado">
+				<?php echo wp_kses_post( wc_price( $regular_price ) ); ?>
+			</div>
+			<div class="wpp-precio-otros-medios">
+				<?php echo wp_kses_post( wc_price( $other_price ) ); ?>
+			</div>
+			<div class="wpp-precio-transferencia">
+				<?php echo wp_kses_post( wc_price( $sale_price ) ); ?>
+			</div>
+			<div class="wpp-transferencia-caption">
+				<?php echo esc_html__( 'Precio por pago con transferencia', 'woo-precio-promo' ); ?>
+			</div>
+			<?php if ( $installments > 0 && $installment_amt > 0 ) : ?>
+			<div class="wpp-precio-cuotas">
+				<?php
+				echo wp_kses_post(
+					str_replace(
+						array( '{count}', '{amount}' ),
+						array( $installments, wc_price( $installment_amt ) ),
+						WPP_Settings::get( 'installment_template' )
+					)
+				);
+				?>
+			</div>
+			<?php endif; ?>
+		</div>
+		<?php echo self::get_wpp_styles(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+		<?php
+		return ob_get_clean();
+	}
+
+	/**
+	 * Resolve base price used for the regular (non-sale) promo display.
 	 *
 	 * For variable parents we use the minimum variation price so catalog/single
 	 * views can still show promo data before a variation is selected.
@@ -169,5 +252,55 @@ class WPP_Price_Display {
 		}
 
 		return (float) $product->get_price();
+	}
+
+	/**
+	 * Resolve regular and sale prices used for the on-sale promo display.
+	 *
+	 * For variable parents, the minimum variation prices are used so catalog
+	 * and single-product views can render promo data before a variation is
+	 * selected (consistent with WooCommerce's own display convention).
+	 *
+	 * @param WC_Product $product Product object.
+	 * @return array{ regular: float, sale: float }
+	 */
+	private static function get_sale_prices_for_display( $product ) {
+		if ( $product->is_type( 'variable' ) ) {
+			return array(
+				'regular' => (float) $product->get_variation_regular_price( 'min', false ),
+				'sale'    => (float) $product->get_variation_price( 'min', false ),
+			);
+		}
+
+		return array(
+			'regular' => (float) $product->get_regular_price(),
+			'sale'    => (float) $product->get_price(),
+		);
+	}
+
+	/**
+	 * Return the shared CSS for all wpp price wrappers.
+	 *
+	 * Emitting styles inline keeps the plugin self-contained and avoids
+	 * depending on a separate stylesheet enqueue. Duplicate style tags on
+	 * pages with multiple products are harmless – browsers de-duplicate them.
+	 *
+	 * @return string HTML <style> block.
+	 */
+	private static function get_wpp_styles() {
+		return '<style>
+		.wpp-precio-wrapper { line-height: 1.4; }
+		.wpp-precio-financiado { font-size: 0.85em; color: #9b9b9b; text-decoration: none; }
+		.wpp-precio-financiado .woocommerce-Price-amount { font-size: inherit; color: inherit; }
+		.wpp-precio-regular-tachado { font-size: 0.85em; color: #9b9b9b; text-decoration: line-through; }
+		.wpp-precio-regular-tachado .woocommerce-Price-amount { font-size: inherit; color: inherit; }
+		.wpp-precio-otros-medios { font-size: 0.85em; color: #9b9b9b; text-decoration: none; }
+		.wpp-precio-otros-medios .woocommerce-Price-amount { font-size: inherit; color: inherit; }
+		.wpp-precio-transferencia { font-size: 1.6em; color: #c0392b; font-weight: 700; }
+		.wpp-precio-transferencia .woocommerce-Price-amount { font-size: inherit; color: inherit; }
+		.wpp-transferencia-caption { font-size: 0.8em; color: #c0392b; font-weight: 700; margin-top: 2px; text-transform: none; }
+		.wpp-precio-cuotas { font-size: 0.85em; color: #555; margin-top: 2px; }
+		.wpp-precio-cuotas .woocommerce-Price-amount { font-size: inherit; color: inherit; }
+		</style>';
 	}
 }
