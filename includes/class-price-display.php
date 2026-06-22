@@ -138,8 +138,10 @@ class WPP_Price_Display {
 			return '';
 		}
 
-		$uplift          = WPP_Settings::get( 'uplift' );
-		$installments    = WPP_Settings::get( 'installments' );
+		$display_config   = self::get_display_config();
+		$uplift           = $display_config['uplift'];
+		$installments     = $display_config['installments'];
+		$installment_text = $display_config['installment_template'];
 		$financed_price  = $base_price * ( 1 + $uplift );
 		$installment_amt = ( $installments > 0 ) ? ( $financed_price / $installments ) : 0;
 
@@ -162,7 +164,7 @@ class WPP_Price_Display {
 					str_replace(
 						array( '{count}', '{amount}' ),
 						array( $installments, wc_price( $installment_amt ) ),
-						WPP_Settings::get( 'installment_template' )
+						$installment_text
 					)
 				);
 				?>
@@ -198,8 +200,10 @@ class WPP_Price_Display {
 			return self::build_regular_price_html( $product );
 		}
 
-		$uplift          = WPP_Settings::get( 'uplift' );
-		$installments    = WPP_Settings::get( 'installments' );
+		$display_config   = self::get_display_config();
+		$uplift           = $display_config['uplift'];
+		$installments     = $display_config['installments'];
+		$installment_text = $display_config['installment_template'];
 		$other_price     = $sale_price * ( 1 + $uplift );
 		$installment_amt = ( $installments > 0 ) ? ( $other_price / $installments ) : 0;
 
@@ -225,7 +229,7 @@ class WPP_Price_Display {
 					str_replace(
 						array( '{count}', '{amount}' ),
 						array( $installments, wc_price( $installment_amt ) ),
-						WPP_Settings::get( 'installment_template' )
+						$installment_text
 					)
 				);
 				?>
@@ -275,6 +279,19 @@ class WPP_Price_Display {
 		return array(
 			'regular' => (float) $product->get_regular_price(),
 			'sale'    => (float) $product->get_price(),
+		);
+	}
+
+	/**
+	 * Resolve numeric and template settings used by price display helpers.
+	 *
+	 * @return array{ uplift: float, installments: int, installment_template: string }
+	 */
+	private static function get_display_config() {
+		return array(
+			'uplift'               => (float) WPP_Settings::get( 'uplift' ),
+			'installments'         => max( 0, (int) WPP_Settings::get( 'installments' ) ),
+			'installment_template' => (string) WPP_Settings::get( 'installment_template' ),
 		);
 	}
 
