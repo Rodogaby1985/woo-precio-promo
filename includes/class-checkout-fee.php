@@ -62,7 +62,7 @@ class WPP_Checkout_Fee {
 			return;
 		}
 
-		$uplift   = WPP_Settings::get( 'uplift' );
+		$uplift   = (float) WPP_Settings::get( 'uplift' );
 		$subtotal = $cart->get_subtotal();
 
 		if ( $subtotal <= 0 || $uplift <= 0 ) {
@@ -187,7 +187,7 @@ class WPP_Checkout_Fee {
 			return $cart_subtotal_html;
 		}
 
-		$uplift = WPP_Settings::get( 'uplift' );
+		$uplift = (float) WPP_Settings::get( 'uplift' );
 		if ( $uplift <= 0 ) {
 			return $cart_subtotal_html;
 		}
@@ -251,7 +251,7 @@ class WPP_Checkout_Fee {
 			return $fallback_html;
 		}
 
-		$uplift = WPP_Settings::get( 'uplift' );
+		$uplift = (float) WPP_Settings::get( 'uplift' );
 		if ( $uplift <= 0 ) {
 			return $fallback_html;
 		}
