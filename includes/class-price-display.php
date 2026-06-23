@@ -11,8 +11,8 @@
  * For products ON sale, replaces the standard WooCommerce price HTML with:
  *
  *   [regular price – smaller, gray, struck through]
- *   [other-payment price = sale price × (1 + uplift) – smaller, gray]
  *   [sale/transfer price – prominent, red]  precio por pago con transferencia
+ *   [other-payment price = sale price × (1 + uplift) – smaller, gray]
  *   [installments line – small, dark gray]
  *
  * @package WooPrecioPromo
@@ -181,8 +181,9 @@ class WPP_Price_Display {
 	 *
 	 * Layout:
 	 *   [regular price – smaller, gray, struck through]
-	 *   [other-payment price = sale price × (1 + uplift) – smaller, gray]
 	 *   [sale/transfer price – prominent, red]
+	 *   [transfer caption]
+	 *   [other-payment price = sale price × (1 + uplift) – smaller, gray]
 	 *   [installments line – small, dark gray]
 	 *
 	 * Falls back to the regular layout when sale prices cannot be resolved
@@ -213,14 +214,14 @@ class WPP_Price_Display {
 			<div class="wpp-precio-regular-tachado">
 				<?php echo wp_kses_post( wc_price( $regular_price ) ); ?>
 			</div>
-			<div class="wpp-precio-otros-medios">
-				<?php echo wp_kses_post( wc_price( $other_price ) ); ?>
-			</div>
 			<div class="wpp-precio-transferencia">
 				<?php echo wp_kses_post( wc_price( $sale_price ) ); ?>
 			</div>
 			<div class="wpp-transferencia-caption">
 				<?php echo esc_html__( 'Precio por pago con transferencia', 'woo-precio-promo' ); ?>
+			</div>
+			<div class="wpp-precio-otros-medios">
+				<?php echo wp_kses_post( wc_price( $other_price ) ); ?>
 			</div>
 			<?php if ( $installments > 0 && $installment_amt > 0 ) : ?>
 			<div class="wpp-precio-cuotas">
