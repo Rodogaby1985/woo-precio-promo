@@ -5,14 +5,15 @@
  * For products NOT on sale, replaces the standard WooCommerce price HTML with:
  *
  *   [financed price – smaller, gray]
- *   [base/transfer price – prominent, red]  precio por pago con transferencia
+ *   [base/transfer price – prominent, red]  precio por pago con transferencia o efectivo
  *   [installments line – small, dark gray]
  *
  * For products ON sale, replaces the standard WooCommerce price HTML with:
  *
  *   [regular price – smaller, gray, struck through]
- *   [sale/transfer price – prominent, red]  precio por pago con transferencia
+ *   [sale/transfer price – prominent, red]  precio por pago con transferencia o efectivo
  *   [other-payment price = sale price × (1 + uplift) – smaller, gray]
+ *   [other-payment caption]
  *   [installments line – small, dark gray]
  *
  * @package WooPrecioPromo
@@ -142,8 +143,8 @@ class WPP_Price_Display {
 		$uplift           = $display_config['uplift'];
 		$installments     = $display_config['installments'];
 		$installment_text = $display_config['installment_template'];
-		$financed_price  = $base_price * ( 1 + $uplift );
-		$installment_amt = ( $installments > 0 ) ? ( $financed_price / $installments ) : 0;
+		$financed_price   = $base_price * ( 1 + $uplift );
+		$installment_amt  = ( $installments > 0 ) ? ( $financed_price / $installments ) : 0;
 
 		ob_start();
 		?>
@@ -155,7 +156,7 @@ class WPP_Price_Display {
 				<?php echo wp_kses_post( wc_price( $base_price ) ); ?>
 			</div>
 			<div class="wpp-transferencia-caption">
-				<?php echo esc_html__( 'Precio por pago con transferencia', 'woo-precio-promo' ); ?>
+				<?php echo esc_html__( 'Precio por pago con transferencia o efectivo', 'woo-precio-promo' ); ?>
 			</div>
 			<?php if ( $installments > 0 && $installment_amt > 0 ) : ?>
 			<div class="wpp-precio-cuotas">
@@ -184,6 +185,7 @@ class WPP_Price_Display {
 	 *   [sale/transfer price – prominent, red]
 	 *   [transfer caption]
 	 *   [other-payment price = sale price × (1 + uplift) – smaller, gray]
+	 *   [other-payment caption]
 	 *   [installments line – small, dark gray]
 	 *
 	 * Falls back to the regular layout when sale prices cannot be resolved
@@ -205,8 +207,8 @@ class WPP_Price_Display {
 		$uplift           = $display_config['uplift'];
 		$installments     = $display_config['installments'];
 		$installment_text = $display_config['installment_template'];
-		$other_price     = $sale_price * ( 1 + $uplift );
-		$installment_amt = ( $installments > 0 ) ? ( $other_price / $installments ) : 0;
+		$other_price      = $sale_price * ( 1 + $uplift );
+		$installment_amt  = ( $installments > 0 ) ? ( $other_price / $installments ) : 0;
 
 		ob_start();
 		?>
@@ -218,10 +220,13 @@ class WPP_Price_Display {
 				<?php echo wp_kses_post( wc_price( $sale_price ) ); ?>
 			</div>
 			<div class="wpp-transferencia-caption">
-				<?php echo esc_html__( 'Precio por pago con transferencia', 'woo-precio-promo' ); ?>
+				<?php echo esc_html__( 'Precio por pago con transferencia o efectivo', 'woo-precio-promo' ); ?>
 			</div>
 			<div class="wpp-precio-otros-medios">
 				<?php echo wp_kses_post( wc_price( $other_price ) ); ?>
+			</div>
+			<div class="wpp-otros-medios-caption">
+				<?php echo esc_html__( 'Precio con otros medios de pago', 'woo-precio-promo' ); ?>
 			</div>
 			<?php if ( $installments > 0 && $installment_amt > 0 ) : ?>
 			<div class="wpp-precio-cuotas">
@@ -312,8 +317,9 @@ class WPP_Price_Display {
 		.wpp-precio-financiado .woocommerce-Price-amount { font-size: inherit; color: inherit; }
 		.wpp-precio-regular-tachado { font-size: 0.85em; color: #9b9b9b; text-decoration: line-through; }
 		.wpp-precio-regular-tachado .woocommerce-Price-amount { font-size: inherit; color: inherit; }
-		.wpp-precio-otros-medios { font-size: 0.85em; color: #9b9b9b; text-decoration: none; }
+		.wpp-precio-otros-medios { font-size: 0.85em; color: #9b9b9b; text-decoration: none; margin-top: 4px; }
 		.wpp-precio-otros-medios .woocommerce-Price-amount { font-size: inherit; color: inherit; }
+		.wpp-otros-medios-caption { font-size: 0.8em; color: #777; font-weight: 600; margin-top: 2px; text-transform: none; }
 		.wpp-precio-transferencia { font-size: 1.6em; color: #c0392b; font-weight: 700; }
 		.wpp-precio-transferencia .woocommerce-Price-amount { font-size: inherit; color: inherit; }
 		.wpp-transferencia-caption { font-size: 0.8em; color: #c0392b; font-weight: 700; margin-top: 2px; text-transform: none; }
