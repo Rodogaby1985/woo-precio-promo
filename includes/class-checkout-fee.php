@@ -21,6 +21,11 @@ class WPP_Checkout_Fee {
 	const HIDDEN_FEE_LABEL = ' ';
 
 	/**
+	 * Admin-visible label for non-transfer gateway adjustments.
+	 */
+	const ADMIN_FEE_LABEL = 'Comisión por uso de pasarela de pago';
+
+	/**
 	 * Epsilon used when comparing calculated fee amounts.
 	 */
 	const AMOUNT_EPSILON = 0.0001;
@@ -39,6 +44,8 @@ class WPP_Checkout_Fee {
 		add_filter( 'woocommerce_cart_item_subtotal', array( __CLASS__, 'append_transfer_price_note_to_subtotal' ), 20, 3 );
 		add_filter( 'woocommerce_widget_cart_item_quantity', array( __CLASS__, 'append_transfer_price_note_to_mini_cart' ), 20, 3 );
 		add_filter( 'woocommerce_cart_totals_fee_html', array( __CLASS__, 'maybe_hide_adjustment_fee_html' ), 10, 2 );
+		add_filter( 'woocommerce_cart_totals_fee_label', array( __CLASS__, 'maybe_replace_adjustment_fee_label_in_admin' ), 10, 2 );
+		add_filter( 'woocommerce_get_order_item_totals', array( __CLASS__, 'maybe_hide_hidden_fee_in_customer_emails' ), 20, 3 );
 		add_filter( 'woocommerce_cart_subtotal', array( __CLASS__, 'filter_checkout_cart_subtotal' ), 20, 3 );
 	}
 
@@ -152,11 +159,68 @@ class WPP_Checkout_Fee {
 	 * @return string
 	 */
 	public static function maybe_hide_adjustment_fee_html( $fee_html, $fee ) {
-		if ( self::is_hidden_adjustment_fee( $fee ) ) {
+		if ( self::is_hidden_adjustment_fee( $fee ) && ! is_admin() ) {
 			return '<span class="wpp-hidden-adjustment-marker"></span>';
 		}
 
 		return $fee_html;
+	}
+
+	/**
+	 * Replace the hidden adjustment fee label with an admin-visible label.
+	 *
+	 * @param string $fee_label Existing fee label HTML/text.
+	 * @param object $fee       Fee object.
+	 * @return string
+	 */
+	public static function maybe_replace_adjustment_fee_label_in_admin( $fee_label, $fee ) {
+		if ( ! is_admin() ) {
+			return $fee_label;
+		}
+
+		if ( self::is_hidden_adjustment_fee( $fee ) ) {
+			return esc_html__( self::ADMIN_FEE_LABEL, 'woo-precio-promo' );
+		}
+
+		return $fee_label;
+	}
+
+	/**
+	 * Hide the hidden non-transfer adjustment row only in customer emails.
+	 *
+	 * Keeps the fee visible in wp-admin and other back-office contexts while
+	 * preventing the blank-label fee row from appearing in the customer's order
+	 * email totals.
+	 *
+	 * @param array    $total_rows Order total rows.
+	 * @param WC_Order $order      Order object.
+	 * @param string   $tax_display Tax display mode.
+	 * @return array
+	 */
+	public static function maybe_hide_hidden_fee_in_customer_emails( $total_rows, $order, $tax_display ) {
+		unset( $order, $tax_display );
+
+		if ( is_admin() ) {
+			return $total_rows;
+		}
+
+		if ( ! doing_action( 'woocommerce_email_before_order_table' ) ) {
+			return $total_rows;
+		}
+
+		foreach ( $total_rows as $key => $row ) {
+			if ( ! isset( $row['label'] ) ) {
+				continue;
+			}
+
+			$label = trim( wp_strip_all_tags( $row['label'] ) );
+
+			if ( '' === $label || ':' === $label ) {
+				unset( $total_rows[ $key ] );
+			}
+		}
+
+		return $total_rows;
 	}
 
 	/**
@@ -208,6 +272,8 @@ class WPP_Checkout_Fee {
 	 * @return string
 	 */
 	private static function get_transfer_note_html( $product, $quantity ) {
+		unset( $quantity );
+
 		if ( ! WPP_Settings::get( 'enabled' ) ) {
 			return '';
 		}
@@ -224,7 +290,7 @@ class WPP_Checkout_Fee {
 		ob_start();
 		?>
 		<div class="wpp-transfer-note" style="margin-top:4px; line-height:1.3; color:#c0392b; font-size:0.92em; font-weight:700;">
-			<div class="wpp-transfer-note-label"><?php echo esc_html__( 'Precio por pago con transferencia', 'woo-precio-promo' ); ?></div>
+			<div class="wpp-transfer-note-label"><?php echo esc_html__( 'Precio por pago con transferencia o efectivo', 'woo-precio-promo' ); ?></div>
 		</div>
 		<?php
 		return ob_get_clean();
@@ -234,7 +300,7 @@ class WPP_Checkout_Fee {
 	 * Build financed line-subtotal HTML for non-transfer checkout.
 	 *
 	 * Returns the base price multiplied by the uplift and the quantity,
-	 * formatted as a WooCommerce price string.  Falls back to $fallback_html
+	 * formatted as a WooCommerce price string. Falls back to $fallback_html
 	 * when the price cannot be determined or the plugin is disabled.
 	 *
 	 * Note: in cart/checkout contexts $product is always the concrete product or
@@ -310,11 +376,7 @@ class WPP_Checkout_Fee {
 	 * @return bool
 	 */
 	private static function is_hidden_adjustment_fee( $fee ) {
-		return null !== self::$hidden_adjustment_amount
-			&& isset( $fee->amount )
-			&& isset( $fee->name )
-			&& self::HIDDEN_FEE_LABEL === $fee->name
-			&& (float) $fee->amount > 0
-			&& abs( (float) $fee->amount - (float) self::$hidden_adjustment_amount ) < self::AMOUNT_EPSILON;
+		return isset( $fee->name )
+			&& self::HIDDEN_FEE_LABEL === $fee->name;
 	}
 }
